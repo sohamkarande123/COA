@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive Cache Memory Mapping Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <noscript>
+    <p style="text-align:center; padding:1rem; background:#fee2e2;">
+      This simulator needs JavaScript. Please enable JavaScript and reload the page.
+    </p>
+  </noscript>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <h1>Interactive Cache Memory Mapping Simulator</h1>
+      <p class="subtitle">Computer Organization &amp; Architecture &middot; CO5 Micro Project</p>
+      <nav class="top-nav" aria-label="Sections">
+        <a href="#configure">Configure</a>
+        <a href="#simulation">Simulation</a>
+        <a href="#theory">Theory</a>
+        <a href="#flowchart">Flowchart</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- ===================== Student information ===================== -->
+    <section class="card student-card" aria-label="Student information">
+      <h2>Student Information</h2>
+      <div class="student-grid">
+        <div class="field">
+          <label for="stName">Student Name</label>
+          <input type="text" id="stName" placeholder="Enter your full name" autocomplete="name" />
+        </div>
+        <div class="field">
+          <label for="stRoll">Roll Number</label>
+          <input type="text" id="stRoll" placeholder="Enter your roll number" />
+        </div>
+        <div class="field">
+          <label for="stDept">Department</label>
+          <input type="text" id="stDept" placeholder="e.g. Computer Science &amp; Engineering" />
+        </div>
+        <div class="field">
+          <label for="stUni">University / College</label>
+          <input type="text" id="stUni" placeholder="Enter your university or college name" />
+        </div>
+      </div>
+      <p class="hint">These fields are editable and are saved only in your own browser (localStorage) — nothing is sent anywhere.</p>
+    </section>
+
+    <!-- ===================== Configuration ===================== -->
+    <section class="card" id="configure" aria-label="Configuration">
+      <h2>1 &middot; Configure the Memory System</h2>
+
+      <div class="controls-grid">
+        <div class="field">
+          <label for="memorySize">Main memory size (bytes)</label>
+          <input type="number" id="memorySize" value="512" min="1" step="1" />
+        </div>
+        <div class="field">
+          <label for="cacheSize">Cache size (bytes)</label>
+          <input type="number" id="cacheSize" value="128" min="1" step="1" />
+        </div>
+        <div class="field">
+          <label for="blockSize">Block / line size (bytes)</label>
+          <input type="number" id="blockSize" value="16" min="1" step="1" />
+        </div>
+        <div class="field">
+          <label for="technique">Mapping technique</label>
+          <select id="technique">
+            <option value="direct" selected>Direct mapping</option>
+            <option value="fully">Fully associative mapping</option>
+            <option value="set">Set-associative mapping</option>
+          </select>
+        </div>
+        <div class="field" id="assocRow">
+          <label for="associativity">Associativity (ways per set)</label>
+          <select id="associativity"></select>
+        </div>
+        <div class="field" id="policyRow">
+          <label for="policy">Replacement policy</label>
+          <select id="policy">
+            <option value="FIFO" selected>FIFO &mdash; First In, First Out</option>
+            <option value="LRU">LRU &mdash; Least Recently Used</option>
+          </select>
+        </div>
+        <div class="field field-wide">
+          <label for="sequence">Memory block access sequence (comma separated)</label>
+          <input type="text" id="sequence" value="0, 8, 0, 8, 4, 12, 4, 0, 8" placeholder="e.g. 0, 8, 4, 12, 0" />
+        </div>
+      </div>
+
+      <p class="formula-hint" id="formulaHint"></p>
+      <p class="config-summary" id="configSummary"></p>
+
+      <div class="button-row">
+        <button type="button" id="startBtn" class="btn btn-primary">Start Simulation</button>
+        <button type="button" id="prevBtn" class="btn" disabled>&larr; Previous Step</button>
+        <button type="button" id="nextBtn" class="btn" disabled>Next Step &rarr;</button>
+        <button type="button" id="resetBtn" class="btn btn-danger">Reset</button>
+      </div>
+
+      <div class="button-row examples-row">
+        <span class="examples-label">Load an example:</span>
+        <button type="button" id="exampleDirect" class="btn btn-small">Direct example</button>
+        <button type="button" id="exampleFully" class="btn btn-small">Fully associative example</button>
+        <button type="button" id="exampleSet" class="btn btn-small">Set-associative example</button>
+      </div>
+
+      <div id="message" class="message" role="alert" aria-live="polite"></div>
+    </section>
+
+    <!-- ===================== Simulation ===================== -->
+    <section id="simulation" aria-label="Simulation">
+      <div class="sim-grid">
+        <div class="card step-card">
+          <h2>2 &middot; Step-by-Step Simulation</h2>
+          <div id="stepContent" class="step-content" aria-live="polite"></div>
+        </div>
+
+        <div class="card stats-card">
+          <h2>3 &middot; Performance Statistics</h2>
+          <dl class="stats-grid">
+            <div class="stat"><dt>Total accesses</dt><dd id="statTotal">0</dd></div>
+            <div class="stat stat-hit"><dt>Cache hits</dt><dd id="statHits">0</dd></div>
+            <div class="stat stat-miss"><dt>Cache misses</dt><dd id="statMisses">0</dd></div>
+            <div class="stat"><dt>Hit ratio</dt><dd id="statHitRatio">0.0%</dd></div>
+            <div class="stat"><dt>Miss ratio</dt><dd id="statMissRatio">0.0%</dd></div>
+          </dl>
+          <div class="ratio-bars" aria-hidden="true">
+            <div class="ratio-bar-bg"><div class="ratio-bar hit-bar" id="hitBar" style="width:0%"></div></div>
+            <div class="ratio-bar-bg"><div class="ratio-bar miss-bar" id="missBar" style="width:0%"></div></div>
+            <p class="ratio-labels"><span>Hit ratio</span><span>Miss ratio</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>4 &middot; Cache Memory</h2>
+        <div id="cacheTableWrap"></div>
+      </div>
+
+      <div class="card">
+        <h2>5 &middot; Main Memory (blocks)</h2>
+        <div id="memoryGrid" class="memory-grid"></div>
+        <p class="note" id="memoryNote"></p>
+      </div>
+
+      <div class="card">
+        <h2>6 &middot; Access History</h2>
+        <div class="table-scroll">
+          <table class="history-table">
+            <thead>
+              <tr><th>Step</th><th>Block</th><th>Location examined</th><th>Result</th><th>Action taken</th></tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr><td colspan="5" class="placeholder">No accesses processed yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Theory ===================== -->
+    <section class="card theory" id="theory" aria-label="Theory">
+      <h2>7 &middot; Theory</h2>
+
+      <h3>7.1 What is cache memory?</h3>
+      <p>
+        Cache memory is a small, very fast memory placed between the CPU and main memory (RAM). It holds
+        <strong>copies of the main-memory blocks that the CPU is likely to need again soon</strong>. When the CPU
+        requests data, the request is first sent to the cache. If the data is present we have a
+        <strong class="hit-text">HIT</strong> and main memory is not touched; if it is absent we have a
+        <strong class="miss-text">MISS</strong> and the whole block containing the data is fetched from main memory
+        into the cache. Cache memory is required because of the large <em>speed gap</em> between fast CPUs and slower
+        main memory: without a cache the CPU would spend most of its time waiting for memory.
+      </p>
+
+      <h3>7.2 Blocks, lines and tags</h3>
+      <ul>
+        <li>Main memory and cache are divided into fixed-size chunks called <strong>blocks</strong> (main memory) or <strong>lines/frames</strong> (cache).</li>
+        <li>Block size = line size. <code>Number of memory blocks = Memory size / Block size</code> and <code>Number of cache lines = Cache size / Block size</code>.</li>
+        <li>When a block is copied into the cache, the cache stores a <strong>tag</strong> — extra bits that record <em>which</em> memory block the line currently holds.</li>
+        <li>On every access the hardware compares the tag of the requested block with the tags of the relevant line(s) to decide HIT or MISS.</li>
+      </ul>
+
+      <h3>7.3 Direct mapping</h3>
+      <p>Each memory block has exactly <strong>one</strong> possible cache line. The line number is computed from the block number:</p>
+      <div class="formula">Cache line = Block number mod Number of cache lines &nbsp;&nbsp;&nbsp; Tag = floor(Block number / Number of cache lines)</div>
+      <p>
+        The block number is split as <code>[ Tag | Line number | Block offset ]</code>, so the hardware needs no search —
+        it goes straight to the single line.
+      </p>
+      <p><strong>Worked example:</strong> Memory = 512 B, cache = 128 B, block = 16 B &rArr; 32 blocks, 8 cache lines.
+      Block 13: line = 13 mod 8 = <strong>5</strong>, tag = floor(13 / 8) = <strong>1</strong>. Block 13 can live only in line 5.</p>
+      <p><strong>Advantages:</strong> simplest and cheapest hardware; very fast (no search). <strong>Disadvantages:</strong>
+      two blocks that map to the same line keep evicting each other (<em>conflict misses</em>), even if other lines sit empty.</p>
+
+      <h3>7.4 Fully associative mapping</h3>
+      <p>Any block can be placed in <strong>any</strong> cache line. There is no line field at all:</p>
+      <div class="formula">Tag = Block number (the whole block number is stored as the tag)</div>
+      <p>On every access the tag is compared with <em>all</em> lines in parallel. If the block is absent, an empty line
+      is used, or a victim is chosen by a replacement policy (FIFO / LRU).</p>
+      <p><strong>Worked example:</strong> 8 cache lines. Block 13 &rArr; tag = <strong>13</strong>; the block may be loaded
+      into any of lines 0&ndash;7, e.g. line 2 if it is empty.</p>
+      <p><strong>Advantages:</strong> no conflict misses; highest possible hit ratio. <strong>Disadvantages:</strong>
+      needs one comparator per line (expensive) and a replacement algorithm; slower and costlier than direct mapping.</p>
+
+      <h3>7.5 Set-associative mapping</h3>
+      <p>A compromise: the cache lines are grouped into <strong>sets</strong>, and each block maps to exactly one set —
+      but it may occupy <em>any line (way)</em> inside that set.</p>
+      <div class="formula">Number of sets = Number of cache lines / Associativity &nbsp;&nbsp;&nbsp; Set = Block number mod Number of sets &nbsp;&nbsp;&nbsp; Tag = floor(Block number / Number of sets)</div>
+      <p><strong>Worked example:</strong> 8 cache lines, 2-way &rArr; 4 sets. Block 13: set = 13 mod 4 = <strong>1</strong>,
+      tag = floor(13 / 4) = <strong>3</strong>; block 13 may be placed in either way of set 1 (lines 2 or 3).</p>
+      <p><strong>Advantages:</strong> removes most conflict misses while keeping hardware cost reasonable; the most widely
+      used scheme in real processors (e.g. 4-way, 8-way, 16-way caches). <strong>Disadvantages:</strong> still needs
+      comparators and a replacement policy per set; slightly slower than direct mapping.</p>
+
+      <h3>7.6 Comparison of the three techniques</h3>
+      <div class="table-scroll">
+        <table class="compare-table">
+          <thead>
+            <tr><th>Feature</th><th>Direct</th><th>Fully associative</th><th>Set-associative</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Where a block may go</td><td>Exactly one line</td><td>Any line</td><td>Any way of one fixed set</td></tr>
+            <tr><td>Search needed</td><td>None (direct index)</td><td>All lines in parallel</td><td>All ways of one set</td></tr>
+            <tr><td>Conflict misses</td><td>High</td><td>None</td><td>Low</td></tr>
+            <tr><td>Hardware cost</td><td>Lowest (1 comparator)</td><td>Highest (1 comparator per line)</td><td>Medium (1 per way)</td></tr>
+            <tr><td>Replacement policy</td><td>Not needed (forced)</td><td>Required (FIFO/LRU)</td><td>Required (FIFO/LRU)</td></tr>
+            <tr><td>Typical use</td><td>Simple embedded systems</td><td>Small TLBs / special caches</td><td>Modern CPU caches</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>7.7 Replacement policies (FIFO and LRU)</h3>
+      <ul>
+        <li><strong>FIFO (First In, First Out):</strong> evict the block that was loaded <em>earliest</em>, regardless of use. Simple, but may evict a frequently used block just because it is old.</li>
+        <li><strong>LRU (Least Recently Used):</strong> evict the block that has not been used for the <em>longest time</em>. Follows the principle of locality, so it usually gives a better hit ratio than FIFO, at the cost of tracking usage.</li>
+      </ul>
+      <p><strong>Worked difference</strong> (2-line cache, sequence 0, 1, 0, 2, 1):
+      FIFO gives HIT at step 5; LRU gives a MISS at step 5 because LRU evicted block 1 at step 4.</p>
+
+      <h3>7.8 Hit ratio and miss ratio</h3>
+      <div class="formula">Hit ratio = Hits / Total accesses &times; 100% &nbsp;&nbsp;&nbsp; Miss ratio = Misses / Total accesses &times; 100% &nbsp;&nbsp;&nbsp; (Hit ratio + Miss ratio = 100%)</div>
+      <p>A higher hit ratio means the CPU is served by fast cache memory more often, so the average memory-access time is lower:
+      <code>Average access time = Hit time + Miss ratio &times; Miss penalty</code>.</p>
+    </section>
+
+    <!-- ===================== Flowchart ===================== -->
+    <section class="card" id="flowchart" aria-label="Flowchart">
+      <h2>8 &middot; Flowchart &mdash; Cache Access Process</h2>
+      <div class="flowchart">
+        <div class="flow-box flow-start">CPU requests a memory block</div>
+        <div class="flow-arrow" aria-hidden="true">&darr;</div>
+        <div class="flow-box flow-decision">Is the block present in cache?<br /><span class="decision-sub">(check the mapped line / set, or all lines)</span></div>
+        <div class="flow-branches">
+          <div class="flow-branch">
+            <p class="branch-label branch-yes">YES &mdash; HIT</p>
+            <div class="flow-arrow" aria-hidden="true">&darr;</div>
+            <div class="flow-box flow-hit">Serve the block from cache to CPU<br />(update LRU usage time)</div>
+          </div>
+          <div class="flow-branch">
+            <p class="branch-label branch-no">NO &mdash; MISS</p>
+            <div class="flow-arrow" aria-hidden="true">&darr;</div>
+            <div class="flow-box flow-miss">Choose a cache location<br /><span class="decision-sub">direct: fixed line &middot; set-assoc: any way of the set &middot; full: any line &middot; use FIFO/LRU if full</span></div>
+            <div class="flow-arrow" aria-hidden="true">&darr;</div>
+            <div class="flow-box flow-miss">Fetch block from main memory,<br />load it / replace the victim block</div>
+          </div>
+        </div>
+        <div class="flow-arrow" aria-hidden="true">&darr;</div>
+        <div class="flow-box flow-stats">Update statistics (hits, misses, ratios) and cache display</div>
+        <div class="flow-arrow" aria-hidden="true">&darr;</div>
+        <div class="flow-box flow-start">Process the next request &nbsp;<span aria-hidden="true">&#8635;</span> (back to start)</div>
+      </div>
+    </section>
+
+    <footer class="app-footer">
+      <p>Interactive Cache Memory Mapping Simulator &middot; CO&amp;A CO5 Micro Project &middot; Built with plain HTML, CSS and JavaScript &mdash; runs fully offline.</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
